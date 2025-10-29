@@ -14,7 +14,8 @@ function Login() {
 
   const handlesubmit = async (e) => {
     e.preventDefault();
-    setLoginData("");
+  //  setLoginData({ email: "", password: "" });
+
 
     try {
       const res = await axios.post(
@@ -27,6 +28,7 @@ function Login() {
 
       if (res.data.token) {
         console.log("Login Successful:", res.data);
+        localStorage.setItem("token", res.data.token);
        navigate("/")
       } else {
         console.log("Login Failed:", res.data.message || "Unknown error");
@@ -42,9 +44,7 @@ function Login() {
 
   };
 
-  const handleGoogleLogin = () => {
-    console.log("Google login not implemented");
-  };
+
 
   const handlechange = (e) => {
     setLoginData({ ...logindata, [e.target.name]: e.target.value });
@@ -63,15 +63,7 @@ function Login() {
         </h2>
         <p className="text-center text-gray-500 mb-6">Sign in to continue</p>
 
-        <button
-          type="button"
-          className="w-full flex items-center justify-center border border-gray-200 rounded-md py-2 mb-6 bg-white hover:bg-gray-100 transition"
-          onClick={handleGoogleLogin}
-        >
-          <span className="mr-2">🌐</span>
-          Continue with Google
-        </button>
-
+       
         <div className="flex items-center my-4">
           <span className="flex-1 h-px bg-gray-200" />
           <span className="mx-2 text-gray-400 font-medium">OR</span>
