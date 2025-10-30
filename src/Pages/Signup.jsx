@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
 import axios from "axios";
 import EmailIcon from "@mui/icons-material/Email";
 import LockIcon from "@mui/icons-material/Lock";
@@ -14,10 +13,13 @@ function Signup() {
     interests: [],
   });
 
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const navigate = useNavigate();
   const interestsList = ["Collab", "Investment", "ProjectPost"];
 
-  // Input change handler
   const handleChange = (e) => {
     setSignupData({
       ...signupData,
@@ -25,7 +27,6 @@ function Signup() {
     });
   };
 
-  // Checkbox change handler
   const handleCheckboxChange = (interest) => {
     setSignupData((prev) => {
       const current = prev.interests || [];
@@ -35,17 +36,23 @@ function Signup() {
     });
   };
 
-  // Form submit handler
   const handleRegisterButton = async (e) => {
     e.preventDefault();
-    console.log("Handler triggered");
-    console.log("Signup Data:", signupData);
+    setErrorMessage("");
+    setSuccessMessage("");
 
-    // Password match check
+    // Frontend validation
     if (signupData.password.trim() !== signupData.confirmpassword.trim()) {
-      console.log("Passwords do not match");
+      setErrorMessage("Passwords do not match");
       return;
     }
+
+    if (signupData.password.length < 8) {
+      setErrorMessage("Password must be at least 8 characters long");
+      return;
+    }
+
+    setLoading(true);
 
     try {
       const res = await axios.post(
@@ -54,20 +61,22 @@ function Signup() {
         { headers: { "Content-Type": "application/json" } }
       );
 
-      if (res.data.message === "User created successfully") {
-        console.log("Signup successful!");
-        navigate("/login");
+      if (res.data.success) {
+        setSuccessMessage("Account created successfully!");
+        setErrorMessage("");
+        setTimeout(() => navigate("/login"), 1500);
       } else {
-        console.log(res.data.message || "Something went wrong");
+        setErrorMessage(res.data.message || "Signup failed. Please try again.");
       }
     } catch (error) {
-      console.error("Axios error:", error);
+      console.error("Signup Error:", error);
       if (error.response) {
-        console.log("Backend error response:", error.response.data);
-        console.log(error.response.data.detail || "Something went wrong");
+        setErrorMessage(error.response.data.message || "Server error occurred.");
       } else {
-        console.log("Network error");
+        setErrorMessage("Network error. Please check your connection.");
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -85,7 +94,21 @@ function Signup() {
           Create your account
         </h2>
 
-        <form onSubmit={handleRegisterButton} className="space-y-4 mt-6">
+        {/* Success message */}
+        {successMessage && (
+          <p className="text-green-600 text-center mb-3 font-medium">
+            {successMessage}
+          </p>
+        )}
+
+        {/* Error message */}
+        {errorMessage && (
+          <p className="text-red-600 text-center mb-3 font-medium">
+            {errorMessage}
+          </p>
+        )}
+
+        <form onSubmit={handleRegisterButton} className="space-y-4 mt-4">
           {/* Name */}
           <div>
             <label className="block text-gray-700 font-medium mb-1">Name</label>
@@ -179,9 +202,14 @@ function Signup() {
 
           <button
             type="submit"
-            className="w-full bg-blue-900 text-white rounded-md py-2 font-semibold hover:bg-blue-800 transition mt-3"
+            disabled={loading}
+            className={`w-full text-white rounded-md py-2 font-semibold transition mt-3 ${
+              loading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-900 hover:bg-blue-800"
+            }`}
           >
-            Create account
+            {loading ? "Creating Account..." : "Create Account"}
           </button>
         </form>
       </div>
