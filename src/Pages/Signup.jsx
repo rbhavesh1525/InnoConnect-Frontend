@@ -3,14 +3,16 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import EmailIcon from "@mui/icons-material/Email";
 import LockIcon from "@mui/icons-material/Lock";
+import PhoneIcon from "@mui/icons-material/Phone";
 
 function Signup() {
   const [signupData, setSignupData] = useState({
     name: "",
     email: "",
+    phone: "",
     password: "",
     confirmpassword: "",
-    interests: [],
+    role: "innovator",
   });
 
   const [errorMessage, setErrorMessage] = useState("");
@@ -18,7 +20,6 @@ function Signup() {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
-  const interestsList = ["Collab", "Investment", "ProjectPost"];
 
   const handleChange = (e) => {
     setSignupData({
@@ -27,22 +28,16 @@ function Signup() {
     });
   };
 
-  const handleCheckboxChange = (interest) => {
-    setSignupData((prev) => {
-      const current = prev.interests || [];
-      return current.includes(interest)
-        ? { ...prev, interests: current.filter((i) => i !== interest) }
-        : { ...prev, interests: [...current, interest] };
-    });
-  };
-
   const handleRegisterButton = async (e) => {
     e.preventDefault();
+
     setErrorMessage("");
     setSuccessMessage("");
 
-    // Frontend validation
-    if (signupData.password.trim() !== signupData.confirmpassword.trim()) {
+    if (
+      signupData.password.trim() !==
+      signupData.confirmpassword.trim()
+    ) {
       setErrorMessage("Passwords do not match");
       return;
     }
@@ -58,22 +53,38 @@ function Signup() {
       const res = await axios.post(
         "http://127.0.0.1:8000/api/auth/signup",
         signupData,
-        { headers: { "Content-Type": "application/json" } }
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
       );
+      console.log("signup data : ", signupData)
 
       if (res.data.success) {
         setSuccessMessage("Account created successfully!");
         setErrorMessage("");
-        setTimeout(() => navigate("/login"), 1500);
+
+        setTimeout(() => {
+          navigate("/login");
+        }, 1500);
       } else {
-        setErrorMessage(res.data.message || "Signup failed. Please try again.");
+        setErrorMessage(
+          res.data.message || "Signup failed. Please try again."
+        );
       }
     } catch (error) {
       console.error("Signup Error:", error);
+
       if (error.response) {
-        setErrorMessage(error.response.data.message || "Server error occurred.");
+        setErrorMessage(
+          error.response.data.message ||
+            "Server error occurred."
+        );
       } else {
-        setErrorMessage("Network error. Please check your connection.");
+        setErrorMessage(
+          "Network error. Please check your connection."
+        );
       }
     } finally {
       setLoading(false);
@@ -94,24 +105,27 @@ function Signup() {
           Create your account
         </h2>
 
-        {/* Success message */}
         {successMessage && (
           <p className="text-green-600 text-center mb-3 font-medium">
             {successMessage}
           </p>
         )}
 
-        {/* Error message */}
         {errorMessage && (
           <p className="text-red-600 text-center mb-3 font-medium">
             {errorMessage}
           </p>
         )}
 
-        <form onSubmit={handleRegisterButton} className="space-y-4 mt-4">
+        <form
+          onSubmit={handleRegisterButton}
+          className="space-y-4 mt-4"
+        >
           {/* Name */}
           <div>
-            <label className="block text-gray-700 font-medium mb-1">Name</label>
+            <label className="block text-gray-700 font-medium mb-1">
+              Name
+            </label>
             <input
               name="name"
               type="text"
@@ -125,11 +139,15 @@ function Signup() {
 
           {/* Email */}
           <div>
-            <label className="block text-gray-700 font-medium mb-1">Email</label>
+            <label className="block text-gray-700 font-medium mb-1">
+              Email
+            </label>
+
             <div className="relative">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
                 <EmailIcon />
               </div>
+
               <input
                 name="email"
                 type="email"
@@ -142,13 +160,71 @@ function Signup() {
             </div>
           </div>
 
+          {/* Phone */}
+          <div>
+            <label className="block text-gray-700 font-medium mb-1">
+              Phone Number
+            </label>
+
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                <PhoneIcon />
+              </div>
+
+              <input
+                name="phone"
+                type="tel"
+                value={signupData.phone}
+                onChange={handleChange}
+                required
+                className="w-full pl-10 pr-4 py-2 rounded-md border border-gray-200 focus:outline-none focus:border-blue-400"
+                placeholder="Enter phone number"
+              />
+            </div>
+          </div>
+
+          {/* Role */}
+          <div>
+            <label className="block text-gray-700 font-medium mb-2">
+              Register As
+            </label>
+
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="role"
+                  value="innovator"
+                  checked={signupData.role === "innovator"}
+                  onChange={handleChange}
+                />
+                <span>Innovator</span>
+              </label>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="role"
+                  value="investor"
+                  checked={signupData.role === "investor"}
+                  onChange={handleChange}
+                />
+                <span>Investor</span>
+              </label>
+            </div>
+          </div>
+
           {/* Password */}
           <div>
-            <label className="block text-gray-700 font-medium mb-1">Password</label>
+            <label className="block text-gray-700 font-medium mb-1">
+              Password
+            </label>
+
             <div className="relative">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
                 <LockIcon />
               </div>
+
               <input
                 name="password"
                 type="password"
@@ -166,10 +242,12 @@ function Signup() {
             <label className="block text-gray-700 font-medium mb-1">
               Confirm Password
             </label>
+
             <div className="relative">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
                 <LockIcon />
               </div>
+
               <input
                 name="confirmpassword"
                 type="password"
@@ -182,24 +260,6 @@ function Signup() {
             </div>
           </div>
 
-          {/* Interests */}
-          <div>
-            <label className="block text-gray-700 font-medium mb-1">Interested In</label>
-            <div className="flex flex-col gap-2">
-              {interestsList.map((interest) => (
-                <label key={interest} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={signupData.interests.includes(interest)}
-                    onChange={() => handleCheckboxChange(interest)}
-                    className="accent-blue-600"
-                  />
-                  <span>{interest}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
           <button
             type="submit"
             disabled={loading}
@@ -209,7 +269,9 @@ function Signup() {
                 : "bg-blue-900 hover:bg-blue-800"
             }`}
           >
-            {loading ? "Creating Account..." : "Create Account"}
+            {loading
+              ? "Creating Account..."
+              : "Create Account"}
           </button>
         </form>
       </div>

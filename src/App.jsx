@@ -3,6 +3,7 @@ import './App.css'
 import {Login,HomePage,Signup} from './Pages/PageIndex'
 import UserProfile from './Pages/UserProfile'
 import {UserChat,MyNetwork} from './Pages/PageIndex'
+import { Navbar, Footer } from './Components/CompIndex'
 
 function App() {
  
@@ -11,7 +12,7 @@ function App() {
    
     <Router>
     <Routes>
-      <Route path='/' element={<><HomePage/></>}/>
+      <Route path='/' element={<><HomePage/> <Footer/>   </>}/>
       <Route path='/login' element={<Login/>}/>
       <Route path='/signup' element={<Signup/>}/>
       <Route path='/userprofile' element={<UserProfile/>}/>
