@@ -1,5 +1,7 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { checkSimilarity, submitProject } from "../services/projectApi";
+import { sendCollaborationRequest } from "../services/collaborationApi";
 
 const STATUS_STYLES = {
   duplicate: {
@@ -17,6 +19,7 @@ const STATUS_STYLES = {
 };
 
 const PostProject = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     project_title: "",
     description: "",
@@ -28,6 +31,8 @@ const PostProject = () => {
   const [similarResults, setSimilarResults] = useState(null);
   const [hasCheckedSimilarity, setHasCheckedSimilarity] = useState(false);
   const [loading, setLoading] = useState({ check: false, submit: false });
+  const [collaborationLoading, setCollaborationLoading] = useState({});
+  const [sentRequests, setSentRequests] = useState({});
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -120,6 +125,50 @@ const PostProject = () => {
   const hasDuplicates = similarResults?.some(
     (item) => item.status === "duplicate"
   );
+
+  const handleSendCollaborationRequest = async (item) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    if (!item.owner_id || !item.project_id) {
+      setError("This project cannot receive collaboration requests.");
+      return;
+    }
+
+    const requestKey = `${item.owner_id}-${item.project_id}`;
+    setCollaborationLoading((prev) => ({ ...prev, [requestKey]: true }));
+    setError("");
+
+    try {
+      const response = await sendCollaborationRequest(
+        item.owner_id,
+        item.project_id
+      );
+
+      if (response.data?.success === false) {
+        setError(response.data.message || "Request could not be sent.");
+        if (response.data.message === "Request already exists") {
+          setSentRequests((prev) => ({ ...prev, [requestKey]: true }));
+        }
+        return;
+      }
+
+      setSentRequests((prev) => ({ ...prev, [requestKey]: true }));
+      setSuccessMessage(
+        `Collaboration request sent to ${item.owner} for "${item.project_title}".`
+      );
+    } catch (err) {
+      setError(
+        err.response?.data?.detail ||
+          "Failed to send collaboration request. Please log in and try again."
+      );
+    } finally {
+      setCollaborationLoading((prev) => ({ ...prev, [requestKey]: false }));
+    }
+  };
 
   return (
     <div className="flex justify-center items-start min-h-screen bg-gray-50 py-8 px-4">
@@ -256,6 +305,9 @@ const PostProject = () => {
                 {similarResults?.map((item, index) => {
                   const style =
                     STATUS_STYLES[item.status] || STATUS_STYLES.related;
+                  const requestKey = `${item.owner_id}-${item.project_id}`;
+                  const isSent = sentRequests[requestKey];
+                  const isSending = collaborationLoading[requestKey];
 
                   return (
                     <div
@@ -292,6 +344,21 @@ const PostProject = () => {
                           </p>
                         )}
                       </div>
+
+                      {item.owner_id && item.project_id && (
+                        <button
+                          type="button"
+                          onClick={() => handleSendCollaborationRequest(item)}
+                          disabled={isSent || isSending}
+                          className="mt-3 w-full sm:w-auto bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-indigo-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {isSending
+                            ? "Sending..."
+                            : isSent
+                              ? "Request Sent"
+                              : "Send Collaboration Request"}
+                        </button>
+                      )}
                     </div>
                   );
                 })}
