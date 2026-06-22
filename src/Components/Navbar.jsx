@@ -11,11 +11,14 @@ import {
 } from "@mui/icons-material";
 import { Menu, MenuItem, Button, IconButton, ListItemIcon } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import NotificationBadge from "./NotificationBadge";
+import { useNotifications } from "../context/NotificationContext";
 
 const Navbar = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
+  const { totalUnread, pendingRequests } = useNotifications();
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -61,13 +64,18 @@ const Navbar = () => {
           <span className="text-sm font-medium">My Network</span>
         </button>
 
-        <button className="flex flex-col items-center hover:text-blue-600 transition" onClick={()=> navigate("/chat")}>
+        <button className="relative flex flex-col items-center hover:text-blue-600 transition" onClick={()=> navigate("/chat")}>
           <ChatBubbleOutline fontSize="small" />
+          <NotificationBadge count={totalUnread} />
           <span className="text-sm font-medium">Messages</span>
         </button>
 
-        <button className="flex flex-col items-center hover:text-blue-600 transition">
+        <button
+          className="relative flex flex-col items-center hover:text-blue-600 transition"
+          onClick={() => navigate("/chat")}
+        >
           <NotificationsNone fontSize="small" />
+          <NotificationBadge count={pendingRequests} />
           <span className="text-sm font-medium">Notifications</span>
         </button>
       </div>
