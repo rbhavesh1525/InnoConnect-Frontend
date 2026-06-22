@@ -19,6 +19,13 @@ export async function sendCollaborationRequest(receiverId, projectId) {
   return res.data;
 }
 
+export async function fetchPendingRequestCount() {
+  const res = await axios.get(`${API_URL}/collaboration/incoming/count`, {
+    headers: getAuthHeaders(),
+  });
+  return res.data.count;
+}
+
 export async function fetchIncomingRequests() {
   const res = await axios.get(`${API_URL}/collaboration/incoming`, {
     headers: getAuthHeaders(),

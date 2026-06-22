@@ -7,7 +7,6 @@ import {
   fetchConversation,
   sendMessage,
   getUserIdFromToken,
-  getWebSocketUrl,
 } from "../services/messageApi";
 import {
   fetchIncomingRequests,
@@ -15,6 +14,8 @@ import {
   acceptCollaborationRequest,
   rejectCollaborationRequest,
 } from "../services/collaborationApi";
+import { useNotifications } from "../context/NotificationContext";
+import NotificationBadge from "../Components/NotificationBadge";
 
 function formatMessageTime(createdAt) {
   if (!createdAt) return "";
@@ -27,9 +28,23 @@ function formatMessageTime(createdAt) {
 const UserChat = () => {
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
-  const wsRef = useRef(null);
+
+  const {
+    unreadByUser,
+    wsConnected,
+    pendingRequests,
+    latestIncomingMessage,
+    applyUnreadCounts,
+    setActiveConversation,
+    registerMessageHandler,
+    registerCollaborationHandler,
+    refreshCounts,
+  } = useNotifications();
 
   const [currentUserId, setCurrentUserId] = useState(null);
+  // Keep a ref in sync with the state so WS handlers always see the
+  // latest value without needing to re-register on every state change.
+  const currentUserIdRef = useRef(null);
   const [users, setUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
@@ -38,7 +53,6 @@ const UserChat = () => {
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
-  const [wsConnected, setWsConnected] = useState(false);
   const [error, setError] = useState("");
   const [incomingRequests, setIncomingRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
@@ -76,6 +90,7 @@ const UserChat = () => {
     }
 
     setCurrentUserId(userId);
+    currentUserIdRef.current = userId;
 
     const loadUsers = async () => {
       try {
@@ -115,54 +130,74 @@ const UserChat = () => {
     loadCollaborationRequests();
   }, [loadCollaborationRequests]);
 
+  // Primary message handler — registered immediately on mount (not gated on
+  // currentUserId state) so StrictMode re-mount cycles don't create a gap
+  // where WS events fire with no handler registered.
+  useEffect(() => {
+    return registerMessageHandler((msg) => {
+      const uid = currentUserIdRef.current;
+      if (!uid) return;
+      const otherUserId = msg.sender_id === uid ? msg.receiver_id : msg.sender_id;
+      appendMessage(otherUserId, msg);
+    });
+  }, [registerMessageHandler, appendMessage]);
+
+  // Fallback: react to latestIncomingMessage from context. This guarantees
+  // delivery even if the handler above was momentarily unregistered.
+  useEffect(() => {
+    const msg = latestIncomingMessage;
+    if (!msg) return;
+    const uid = currentUserIdRef.current;
+    if (!uid) return;
+    const otherUserId = msg.sender_id === uid ? msg.receiver_id : msg.sender_id;
+    appendMessage(otherUserId, msg);
+  }, [latestIncomingMessage, appendMessage]);
+
+  useEffect(() => {
+    return registerCollaborationHandler(() => {
+      loadCollaborationRequests();
+    });
+  }, [loadCollaborationRequests, registerCollaborationHandler]);
+
+  // Re-fetch when the global pending count changes (e.g. user navigated to
+  // /chat after receiving a WS event while on another page)
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token || !currentUserId) return;
+    if (!token) return;
+    loadCollaborationRequests();
+  }, [pendingRequests, loadCollaborationRequests]);
 
-    const ws = new WebSocket(getWebSocketUrl());
-    wsRef.current = ws;
-
-    ws.onopen = () => setWsConnected(true);
-
-    ws.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        if (payload.event !== "newMessage" || !payload.data) return;
-
-        const msg = payload.data;
-        const otherUserId =
-          msg.sender_id === currentUserId ? msg.receiver_id : msg.sender_id;
-
-        appendMessage(otherUserId, msg);
-        loadCollaborationRequests();
-      } catch {
-        // ignore malformed messages
-      }
-    };
-
-    ws.onerror = () => {
-      setError("Real-time connection lost. Messages may be delayed.");
-    };
-
+  // Clear active conversation tracking when UserChat unmounts so the
+  // NotificationContext WS handler doesn't mistakenly think the receiver
+  // is still viewing this conversation after they've navigated away.
+  useEffect(() => {
     return () => {
-      ws.close();
-      wsRef.current = null;
-      setWsConnected(false);
+      setActiveConversation(null);
     };
-  }, [currentUserId, appendMessage, loadCollaborationRequests]);
+  }, [setActiveConversation]);
 
   useEffect(() => {
-    if (!selectedUser) return;
+    if (!selectedUser) {
+      setActiveConversation(null);
+      return;
+    }
+
+    setActiveConversation(selectedUser.user_id);
 
     const loadMessages = async () => {
       try {
         setLoadingMessages(true);
         setError("");
-        const messages = await fetchConversation(selectedUser.user_id);
+        const { messages, unreadCounts } = await fetchConversation(
+          selectedUser.user_id
+        );
         setChat((prev) => ({
           ...prev,
           [selectedUser.user_id]: messages,
         }));
+        if (unreadCounts) {
+          applyUnreadCounts(unreadCounts);
+        }
       } catch {
         setError("Failed to load conversation.");
       } finally {
@@ -171,7 +206,7 @@ const UserChat = () => {
     };
 
     loadMessages();
-  }, [selectedUser]);
+  }, [selectedUser, setActiveConversation, applyUnreadCounts]);
 
   useEffect(() => {
     scrollToBottom();
@@ -225,6 +260,7 @@ const UserChat = () => {
       });
 
       await loadCollaborationRequests();
+      await refreshCounts();
     } catch {
       setError(
         `Failed to ${action} collaboration request. Please try again.`
@@ -423,7 +459,10 @@ const UserChat = () => {
                   No users found.
                 </p>
               ) : (
-                filteredUsers.map((user) => (
+                filteredUsers.map((user) => {
+                  const unreadCount = unreadByUser[user.user_id] || 0;
+
+                  return (
                   <div
                     key={user.user_id}
                     onClick={() => {
@@ -438,26 +477,32 @@ const UserChat = () => {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-medium">{user.name}</p>
-                      {incomingRequests.some(
-                        (req) => req.sender_id === user.user_id
-                      ) && (
-                        <span className="text-[10px] font-semibold uppercase tracking-wide bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
-                          Request
-                        </span>
-                      )}
-                      {sentRequests.some(
-                        (req) =>
-                          req.receiver_id === user.user_id &&
-                          req.status === "pending"
-                      ) && (
-                        <span className="text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
-                          Sent
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {unreadCount > 0 && (
+                          <NotificationBadge count={unreadCount} variant="inline" />
+                        )}
+                        {incomingRequests.some(
+                          (req) => req.sender_id === user.user_id
+                        ) && (
+                          <span className="text-[10px] font-semibold uppercase tracking-wide bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+                            Request
+                          </span>
+                        )}
+                        {sentRequests.some(
+                          (req) =>
+                            req.receiver_id === user.user_id &&
+                            req.status === "pending"
+                        ) && (
+                          <span className="text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                            Sent
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p className="text-xs text-gray-500 truncate">{user.email}</p>
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

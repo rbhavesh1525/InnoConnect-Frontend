@@ -3,13 +3,14 @@ import './App.css'
 import {Login,HomePage,Signup} from './Pages/PageIndex'
 import UserProfile from './Pages/UserProfile'
 import {UserChat,MyNetwork} from './Pages/PageIndex'
-import { Navbar, Footer } from './Components/CompIndex'
+import { Footer } from './Components/CompIndex'
+import { NotificationProvider } from './context/NotificationContext'
 
 function App() {
  
 
   return (
-   
+    <NotificationProvider>
     <Router>
     <Routes>
       <Route path='/' element={<><HomePage/> <Footer/>   </>}/>
@@ -21,6 +22,7 @@ function App() {
     
     </Routes>
     </Router>
+    </NotificationProvider>
   
 
 

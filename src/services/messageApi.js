@@ -39,7 +39,26 @@ export async function fetchConversation(userId) {
   const res = await axios.get(`${API_URL}/messages/${userId}`, {
     headers: getAuthHeaders(),
   });
-  return res.data.messages;
+  return {
+    messages: res.data.messages,
+    unreadCounts: res.data.unread_counts,
+  };
+}
+
+export async function fetchUnreadCounts() {
+  const res = await axios.get(`${API_URL}/messages/unread/counts`, {
+    headers: getAuthHeaders(),
+  });
+  return res.data.unread_counts;
+}
+
+export async function markConversationRead(userId) {
+  const res = await axios.post(
+    `${API_URL}/messages/${userId}/read`,
+    {},
+    { headers: getAuthHeaders() }
+  );
+  return res.data.unread_counts;
 }
 
 export async function sendMessage(receiverId, message) {
