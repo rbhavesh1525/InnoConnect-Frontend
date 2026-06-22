@@ -28,12 +28,14 @@ function Login() {
   console.log("Response from backend:", res.data);
 
   if (res.data.success) {
-    // ✅ Successful login
     localStorage.setItem("token", res.data.token);
+    localStorage.setItem("user", JSON.stringify(res.data.user));
+    localStorage.setItem("user_id", res.data.user_id);
+    console.log("user_id", res.data.user_id);
     setSuccessMessage(res.data.message || "Login successful!");
     setTimeout(() => navigate("/"), 1500);
   } else {
-    // ❌ Invalid credentials or other issue
+    
     setError(res.data.message || "Login failed. Please try again.");
   }
 } catch (error) {
