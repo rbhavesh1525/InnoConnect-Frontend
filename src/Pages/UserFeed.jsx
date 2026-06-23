@@ -4,13 +4,13 @@ import axios from "axios";
 
 const UserFeed = () => {
   const [projects, setProjects] = useState([]);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
 
   // Fetch projects from backend (replace with your API)
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        // Example: const response = await axios.get(`${import.meta.env.VITE_API_URL}/projects`);
-        // setProjects(response.data);
         
         // TEMP demo data
         setProjects([
@@ -42,9 +42,78 @@ const UserFeed = () => {
     fetchProjects();
   }, []);
 
-  const handleFollow = (userId) => {
-    console.log("Follow user:", userId);
-  };
+  useEffect(() => {
+  checkFollowStatus();
+}, []);
+
+const checkFollowStatus = async () => {
+  try {
+    const myId = localStorage.getItem("user_id");
+
+    const response = await axios.get(
+      `http://127.0.0.1:8000/api/follow/status/${myId}/${user.user_id}`
+    );
+
+    console.log(
+      "FOLLOW STATUS RESPONSE:",
+      response.data
+    );
+
+    setIsFollowing(
+      response.data.following
+    );
+
+  } catch (error) {
+
+    console.error(
+      "FOLLOW STATUS ERROR:",
+      error.response?.data || error.message
+    );
+  }
+};
+
+const handleFollow = async () => {
+
+  try {
+
+    setFollowLoading(true);
+
+    const myId = localStorage.getItem("user_id");
+
+    console.log("Current User:", myId);
+    console.log("Following User:", user.user_id);
+
+    const response = await axios.post(
+      `http://127.0.0.1:8000/api/follow/${user.user_id}`,
+      {
+        follower_id: myId
+      }
+    );
+
+    console.log(
+      "FOLLOW SUCCESS:",
+      response.data
+    );
+
+    setIsFollowing(true);
+
+  } catch (error) {
+
+    console.error(
+      "FOLLOW ERROR:",
+      error.response?.data || error.message
+    );
+
+    alert(
+      error.response?.data?.message ||
+      "Failed to follow user"
+    );
+
+  } finally {
+
+    setFollowLoading(false);
+  }
+};
 
   const handleAction = (action, projectId) => {
     console.log(`${action} clicked for project ${projectId}`);
@@ -66,12 +135,23 @@ const UserFeed = () => {
               >
                 {project.user.name}
               </button>
-              <button
-                onClick={() => handleFollow(project.user.id)}
-                className="text-blue-600 border border-blue-400 rounded-lg px-3 py-1 text-sm hover:bg-blue-50"
-              >
-                Follow
-              </button>
+             <button
+  onClick={handleFollow}
+  disabled={followLoading || isFollowing}
+  className={`px-4 py-2 rounded-lg text-white ${
+    isFollowing
+      ? "bg-green-600"
+      : "bg-blue-600 hover:bg-blue-700"
+  }`}
+>
+
+  {followLoading
+    ? "Following..."
+    : isFollowing
+    ? "Following"
+    : "Follow"}
+
+</button>
             </div>
 
             {/* Project Info */}

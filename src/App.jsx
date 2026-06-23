@@ -1,32 +1,41 @@
-import {BrowserRouter as Router , Routes, Route} from 'react-router-dom'
-import './App.css'
-import {Login,HomePage,Signup} from './Pages/PageIndex'
-import UserProfile from './Pages/UserProfile'
-import {UserChat,MyNetwork} from './Pages/PageIndex'
-import { Footer } from './Components/CompIndex'
-import { NotificationProvider } from './context/NotificationContext'
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import "./App.css";
+import { Login, HomePage, Signup } from "./Pages/PageIndex";
+import UserProfile from "./Pages/UserProfile";
+import { UserChat, MyNetwork } from "./Pages/PageIndex";
+import { Footer } from "./Components/CompIndex";
+import { NotificationProvider } from "./context/NotificationContext";
+import AdminDashboard from "./Admin/AdminDashboard";
+import InvestorVerification from "./Admin/InvestorVerification";
 
 function App() {
- 
-
   return (
     <NotificationProvider>
-    <Router>
-    <Routes>
-      <Route path='/' element={<><HomePage/> <Footer/>   </>}/>
-      <Route path='/login' element={<Login/>}/>
-      <Route path='/signup' element={<Signup/>}/>
-      <Route path='/userprofile' element={<UserProfile/>}/>
-      <Route path='/chat' element={<UserChat/>}/>
-      <Route path='/mynetwork' element={<MyNetwork/>}/>
-    
-    </Routes>
-    </Router>
+      <Router>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <>
+                <HomePage /> <Footer />{" "}
+              </>
+            }
+          />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/userprofile" element={<UserProfile />} />
+          <Route path="/chat" element={<UserChat />} />
+          <Route path="/mynetwork" element={<MyNetwork />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+
+          <Route
+            path="/admin/investor-verification"
+            element={<InvestorVerification />}
+          />
+        </Routes>
+      </Router>
     </NotificationProvider>
-  
-   
-   
-  )
+  );
 }
 
-export default App
+export default App;
