@@ -18,6 +18,19 @@ const STATUS_STYLES = {
   },
 };
 
+// Word-count fields that require min/max validation
+const WORD_COUNT_FIELDS = [
+  "project_title",
+  "description",
+  "problem_statement",
+  "solution_overview",
+];
+const MIN_WORDS = 5;
+const MAX_WORDS = 500;
+
+const countWords = (text) =>
+  text.trim() === "" ? 0 : text.trim().split(/\s+/).length;
+
 const PostProject = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -34,6 +47,7 @@ const PostProject = () => {
   const [collaborationLoading, setCollaborationLoading] = useState({});
   const [sentRequests, setSentRequests] = useState({});
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState("");
 
   const handleChange = (e) => {
@@ -42,6 +56,11 @@ const PostProject = () => {
     setHasCheckedSimilarity(false);
     setSimilarResults(null);
     setSuccessMessage("");
+
+    // Clear per-field error as user types
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+    }
   };
 
   const buildPayload = () => ({
@@ -54,15 +73,34 @@ const PostProject = () => {
 
   const validateForm = () => {
     const payload = buildPayload();
-    const missing = Object.entries(payload)
-      .filter(([, value]) => !value)
-      .map(([key]) => key.replace(/_/g, " "));
+    const errors = {};
 
-    if (missing.length > 0) {
-      setError(`Please fill in: ${missing.join(", ")}`);
+    // Check all fields are filled
+    Object.entries(payload).forEach(([key, value]) => {
+      if (!value) {
+        errors[key] = `${key.replace(/_/g, " ")} is required.`;
+      }
+    });
+
+    // Check word counts for text fields
+    WORD_COUNT_FIELDS.forEach((field) => {
+      if (payload[field]) {
+        const wc = countWords(payload[field]);
+        if (wc < MIN_WORDS) {
+          errors[field] = `Must be at least ${MIN_WORDS} words (currently ${wc}).`;
+        } else if (wc > MAX_WORDS) {
+          errors[field] = `Must be at most ${MAX_WORDS} words (currently ${wc}).`;
+        }
+      }
+    });
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setError("Please fix the highlighted fields before continuing.");
       return false;
     }
 
+    setFieldErrors({});
     setError("");
     return true;
   };
@@ -122,8 +160,14 @@ const PostProject = () => {
     }
   };
 
-  const hasDuplicates = similarResults?.some(
-    (item) => item.status === "duplicate"
+  // Only show results with similarity >= 35%
+  const filteredResults = similarResults?.filter(
+    (item) => item.similarity >= 0.35
+  ) ?? [];
+
+  // True when any visible result has similarity > 75%
+  const hasDuplicates = filteredResults.some(
+    (item) => item.similarity > 0.75
   );
 
   const handleSendCollaborationRequest = async (item) => {
@@ -196,6 +240,7 @@ const PostProject = () => {
             </div>
           )}
 
+          {/* ── Project Title ── */}
           <div className="mb-5">
             <label className="block text-gray-700 font-medium mb-2">
               Project Title
@@ -206,10 +251,31 @@ const PostProject = () => {
               placeholder="Enter your project title"
               value={formData.project_title}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className={`w-full border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+                fieldErrors.project_title ? "border-red-400 bg-red-50" : "border-gray-300"
+              }`}
             />
+            <div className="flex justify-between items-center mt-1">
+              {fieldErrors.project_title ? (
+                <p className="text-xs text-red-600">{fieldErrors.project_title}</p>
+              ) : (
+                <span />
+              )}
+              <span
+                className={`text-xs ml-auto ${
+                  countWords(formData.project_title) > MAX_WORDS
+                    ? "text-red-500 font-semibold"
+                    : countWords(formData.project_title) >= MIN_WORDS
+                    ? "text-green-600"
+                    : "text-gray-400"
+                }`}
+              >
+                {countWords(formData.project_title)} / {MAX_WORDS} words
+              </span>
+            </div>
           </div>
 
+          {/* ── Project Description ── */}
           <div className="mb-5">
             <label className="block text-gray-700 font-medium mb-2">
               Project Description
@@ -220,10 +286,31 @@ const PostProject = () => {
               value={formData.description}
               onChange={handleChange}
               rows="3"
-              className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className={`w-full border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+                fieldErrors.description ? "border-red-400 bg-red-50" : "border-gray-300"
+              }`}
             />
+            <div className="flex justify-between items-center mt-1">
+              {fieldErrors.description ? (
+                <p className="text-xs text-red-600">{fieldErrors.description}</p>
+              ) : (
+                <span />
+              )}
+              <span
+                className={`text-xs ml-auto ${
+                  countWords(formData.description) > MAX_WORDS
+                    ? "text-red-500 font-semibold"
+                    : countWords(formData.description) >= MIN_WORDS
+                    ? "text-green-600"
+                    : "text-gray-400"
+                }`}
+              >
+                {countWords(formData.description)} / {MAX_WORDS} words
+              </span>
+            </div>
           </div>
 
+          {/* ── Problem Statement ── */}
           <div className="mb-5">
             <label className="block text-gray-700 font-medium mb-2">
               Problem Statement
@@ -234,10 +321,31 @@ const PostProject = () => {
               value={formData.problem_statement}
               onChange={handleChange}
               rows="3"
-              className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className={`w-full border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+                fieldErrors.problem_statement ? "border-red-400 bg-red-50" : "border-gray-300"
+              }`}
             />
+            <div className="flex justify-between items-center mt-1">
+              {fieldErrors.problem_statement ? (
+                <p className="text-xs text-red-600">{fieldErrors.problem_statement}</p>
+              ) : (
+                <span />
+              )}
+              <span
+                className={`text-xs ml-auto ${
+                  countWords(formData.problem_statement) > MAX_WORDS
+                    ? "text-red-500 font-semibold"
+                    : countWords(formData.problem_statement) >= MIN_WORDS
+                    ? "text-green-600"
+                    : "text-gray-400"
+                }`}
+              >
+                {countWords(formData.problem_statement)} / {MAX_WORDS} words
+              </span>
+            </div>
           </div>
 
+          {/* ── Solution Overview ── */}
           <div className="mb-5">
             <label className="block text-gray-700 font-medium mb-2">
               Solution Overview
@@ -248,10 +356,31 @@ const PostProject = () => {
               value={formData.solution_overview}
               onChange={handleChange}
               rows="3"
-              className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className={`w-full border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+                fieldErrors.solution_overview ? "border-red-400 bg-red-50" : "border-gray-300"
+              }`}
             />
+            <div className="flex justify-between items-center mt-1">
+              {fieldErrors.solution_overview ? (
+                <p className="text-xs text-red-600">{fieldErrors.solution_overview}</p>
+              ) : (
+                <span />
+              )}
+              <span
+                className={`text-xs ml-auto ${
+                  countWords(formData.solution_overview) > MAX_WORDS
+                    ? "text-red-500 font-semibold"
+                    : countWords(formData.solution_overview) >= MIN_WORDS
+                    ? "text-green-600"
+                    : "text-gray-400"
+                }`}
+              >
+                {countWords(formData.solution_overview)} / {MAX_WORDS} words
+              </span>
+            </div>
           </div>
 
+          {/* ── Industry Category ── */}
           <div className="mb-6">
             <label className="block text-gray-700 font-medium mb-2">
               Industry Category
@@ -260,7 +389,9 @@ const PostProject = () => {
               name="industry_category"
               value={formData.industry_category}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className={`w-full border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+                fieldErrors.industry_category ? "border-red-400 bg-red-50" : "border-gray-300"
+              }`}
             >
               <option value="">Select category</option>
               <option value="Healthcare">Healthcare</option>
@@ -271,6 +402,9 @@ const PostProject = () => {
               <option value="Social Impact">Social Impact</option>
               <option value="Technology">Technology</option>
             </select>
+            {fieldErrors.industry_category && (
+              <p className="text-xs text-red-600 mt-1">{fieldErrors.industry_category}</p>
+            )}
           </div>
 
           <button
@@ -290,19 +424,18 @@ const PostProject = () => {
 
             {hasDuplicates && (
               <p className="text-sm text-red-600 mb-4">
-                A very similar project already exists. Review the matches below
-                before submitting, or consider collaborating.
+                ⚠️ One or more projects are over 75% similar to yours. Submission has been blocked — consider reaching out to collaborate.
               </p>
             )}
 
-            {similarResults?.length === 0 ? (
+            {filteredResults.length === 0 ? (
               <p className="text-gray-600 text-sm mb-6">
                 No similar projects found in the database. Your idea looks
                 unique!
               </p>
             ) : (
               <div className="space-y-4 mb-6">
-                {similarResults?.map((item, index) => {
+                {filteredResults.map((item, index) => {
                   const style =
                     STATUS_STYLES[item.status] || STATUS_STYLES.related;
                   const requestKey = `${item.owner_id}-${item.project_id}`;
@@ -365,16 +498,25 @@ const PostProject = () => {
               </div>
             )}
 
+            {hasDuplicates && (
+              <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 flex items-start gap-2">
+                <span className="text-red-500 text-lg leading-none mt-0.5">⛔</span>
+                <p className="text-sm text-red-700">
+                  <span className="font-semibold">Submission blocked:</span> One or more existing projects have over 75% similarity with yours. Please review the matches above and consider collaborating instead.
+                </p>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={handleSubmitProject}
-              disabled={loading.submit}
-              className="w-full bg-green-600 text-white font-medium py-3 rounded-lg hover:bg-green-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={loading.submit || hasDuplicates}
+              className="w-full bg-green-600 text-white font-medium py-3 rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading.submit
                 ? "Submitting..."
                 : hasDuplicates
-                  ? "Submit Anyway"
+                  ? "Submission Blocked — Too Similar"
                   : "Submit Project"}
             </button>
           </div>
