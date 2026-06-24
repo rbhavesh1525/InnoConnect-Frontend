@@ -23,3 +23,28 @@ export async function submitProject(project) {
   });
   return res.data;
 }
+
+export async function getAIGuidance(project) {
+  const res = await axios.post(
+    `${API_URL}/innovation/generate-guidance`,
+    project,
+    { headers: { "Content-Type": "application/json" } }
+  );
+  return res.data;
+}
+
+export async function sendChatMessage({ project, similarProjects, message }) {
+  const res = await axios.post(
+    `${API_URL}/innovation/chat`,
+    {
+      project_title: project.project_title,
+      problem_statement: project.problem_statement,
+      solution_overview: project.solution_overview,
+      industry_category: project.industry_category,
+      similar_projects: similarProjects ?? [],
+      message,
+    },
+    { headers: { "Content-Type": "application/json" } }
+  );
+  return res.data; // { reply: "..." }
+}
