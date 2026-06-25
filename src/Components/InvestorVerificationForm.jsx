@@ -14,8 +14,14 @@ import axios from "axios";
 const BASE_URL = "http://127.0.0.1:8000/api/investor-verification";
 
 const industries = [
-  "FinTech", "HealthTech", "EdTech", "AI/ML",
-  "Agriculture", "E-Commerce", "Clean Energy", "SaaS",
+  "FinTech",       // → DB: FinTech
+  "HealthTech",    // → DB: Healthcare
+  "EdTech",        // → DB: EdTech
+  "AI/ML",         // → DB: AI
+  "Agriculture",   // → DB: Agriculture
+  "E-Commerce",    // → DB: Logistics
+  "Clean Energy",  // → DB: Energy
+  "SaaS",          // → DB: IoT + Smart Cities + Cybersecurity
 ];
 
 const stages = ["Idea", "Prototype", "MVP", "Seed", "Series A"];
