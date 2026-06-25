@@ -7,6 +7,7 @@ import { Footer } from "./Components/CompIndex";
 import { NotificationProvider } from "./context/NotificationContext";
 import AdminDashboard from "./Admin/AdminDashboard";
 import InvestorVerification from "./Admin/InvestorVerification";
+import AdminRoute from "./Admin/AdminRoute";
 
 function App() {
   return (
@@ -26,11 +27,23 @@ function App() {
           <Route path="/userprofile" element={<UserProfile />} />
           <Route path="/chat" element={<UserChat />} />
           <Route path="/mynetwork" element={<MyNetwork />} />
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
+          {/* Protected Admin Routes */}
+          <Route
+            path="/admin/dashboard"
+            element={
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            }
+          />
           <Route
             path="/admin/investor-verification"
-            element={<InvestorVerification />}
+            element={
+              <AdminRoute>
+                <InvestorVerification />
+              </AdminRoute>
+            }
           />
         </Routes>
       </Router>
@@ -39,3 +52,4 @@ function App() {
 }
 
 export default App;
+

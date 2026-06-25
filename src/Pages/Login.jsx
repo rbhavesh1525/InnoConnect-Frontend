@@ -33,11 +33,21 @@ function Login() {
     localStorage.setItem("user_id", res.data.user_id);
     console.log("user_id", res.data.user_id);
     setSuccessMessage(res.data.message || "Login successful!");
-    setTimeout(() => navigate("/"), 1500);
+
+    // Redirect based on role
+    const role = res.data.user?.role;
+    setTimeout(() => {
+      if (role === "admin") {
+        navigate("/admin/dashboard");
+      } else {
+        navigate("/");
+      }
+    }, 1500);
   } else {
     
     setError(res.data.message || "Login failed. Please try again.");
   }
+
 } catch (error) {
   console.error("Axios error:", error);
   if (error.response) {

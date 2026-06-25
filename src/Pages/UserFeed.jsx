@@ -4,8 +4,9 @@ import axios from "axios";
 
 const UserFeed = () => {
   const [projects, setProjects] = useState([]);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [followLoading, setFollowLoading] = useState(false);
+  // followMap: { [targetUserId]: boolean }
+  const [followMap, setFollowMap] = useState({});
+  const [followLoading, setFollowLoading] = useState(null); // stores userId being followed
 
   // Fetch projects from backend (replace with your API)
   useEffect(() => {
@@ -42,78 +43,23 @@ const UserFeed = () => {
     fetchProjects();
   }, []);
 
-  useEffect(() => {
-  checkFollowStatus();
-}, []);
-
-const checkFollowStatus = async () => {
-  try {
+  const handleFollow = async (targetUserId) => {
     const myId = localStorage.getItem("user_id");
+    if (!myId || !targetUserId || myId === targetUserId) return;
 
-    const response = await axios.get(
-      `http://127.0.0.1:8000/api/follow/status/${myId}/${user.user_id}`
-    );
-
-    console.log(
-      "FOLLOW STATUS RESPONSE:",
-      response.data
-    );
-
-    setIsFollowing(
-      response.data.following
-    );
-
-  } catch (error) {
-
-    console.error(
-      "FOLLOW STATUS ERROR:",
-      error.response?.data || error.message
-    );
-  }
-};
-
-const handleFollow = async () => {
-
-  try {
-
-    setFollowLoading(true);
-
-    const myId = localStorage.getItem("user_id");
-
-    console.log("Current User:", myId);
-    console.log("Following User:", user.user_id);
-
-    const response = await axios.post(
-      `http://127.0.0.1:8000/api/follow/${user.user_id}`,
-      {
-        follower_id: myId
-      }
-    );
-
-    console.log(
-      "FOLLOW SUCCESS:",
-      response.data
-    );
-
-    setIsFollowing(true);
-
-  } catch (error) {
-
-    console.error(
-      "FOLLOW ERROR:",
-      error.response?.data || error.message
-    );
-
-    alert(
-      error.response?.data?.message ||
-      "Failed to follow user"
-    );
-
-  } finally {
-
-    setFollowLoading(false);
-  }
-};
+    setFollowLoading(targetUserId);
+    try {
+      await axios.post(
+        `http://127.0.0.1:8000/api/follow/${targetUserId}`,
+        { follower_id: myId }
+      );
+      setFollowMap((prev) => ({ ...prev, [targetUserId]: true }));
+    } catch (error) {
+      console.error("FOLLOW ERROR:", error.response?.data || error.message);
+    } finally {
+      setFollowLoading(null);
+    }
+  };
 
   const handleAction = (action, projectId) => {
     console.log(`${action} clicked for project ${projectId}`);
@@ -136,21 +82,19 @@ const handleFollow = async () => {
                 {project.user.name}
               </button>
              <button
-  onClick={handleFollow}
-  disabled={followLoading || isFollowing}
-  className={`px-4 py-2 rounded-lg text-white ${
-    isFollowing
+  onClick={() => handleFollow(project.user.id)}
+  disabled={followLoading === project.user.id || followMap[project.user.id]}
+  className={`px-4 py-2 rounded-lg text-white text-sm font-medium ${
+    followMap[project.user.id]
       ? "bg-green-600"
       : "bg-blue-600 hover:bg-blue-700"
   }`}
 >
-
-  {followLoading
+  {followLoading === project.user.id
     ? "Following..."
-    : isFollowing
-    ? "Following"
+    : followMap[project.user.id]
+    ? "Following ✓"
     : "Follow"}
-
 </button>
             </div>
 
