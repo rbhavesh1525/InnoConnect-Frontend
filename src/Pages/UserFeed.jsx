@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import {
   Heart, MessageCircle, HandCoins, Users,
-  Sparkles, TrendingUp, Layers, Building2,
+  Sparkles, TrendingUp, Layers, Building2, Send
 } from "lucide-react";
 import axios from "axios";
+import { sendFundRequest } from "../services/fundRequestApi";
 
 const BASE_URL = "http://127.0.0.1:8000";
 
@@ -15,6 +16,12 @@ const UserFeed = () => {
   // followMap: { [targetUserId]: boolean }
   const [followMap, setFollowMap]         = useState({});
   const [followLoading, setFollowLoading] = useState(null);
+
+  // Static tracking for likes and comments
+  const [likes, setLikes] = useState({});
+  const [showComments, setShowComments] = useState({});
+  const [commentsList, setCommentsList] = useState({});
+  const [newComment, setNewComment] = useState({});
 
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const role       = storedUser?.role;
@@ -28,6 +35,18 @@ const UserFeed = () => {
     }
   }, []);
 
+  const initStaticCounts = (projectsList) => {
+    const initialCommentsList = {};
+    projectsList.forEach(p => {
+      const id = p.project_id || p.id;
+      initialCommentsList[id] = [
+        { user: "Alex D.", text: "This looks very promising!" },
+        { user: "Sarah K.", text: "Would love to see a demo of this." }
+      ];
+    });
+    setCommentsList(initialCommentsList);
+  };
+
   // ── Investor personalised feed ───────────────────────────────────
   const fetchInvestorFeed = async () => {
     setLoading(true);
@@ -36,6 +55,7 @@ const UserFeed = () => {
       if (res.data.success) {
         setProjects(res.data.data ?? []);
         setIsPersonalised(res.data.personalised ?? false);
+        initStaticCounts(res.data.data ?? []);
       }
     } catch (err) {
       console.error("Investor feed error:", err.response?.data || err.message);
@@ -50,31 +70,14 @@ const UserFeed = () => {
   const fetchGenericFeed = async () => {
     setLoading(true);
     try {
-      // TODO: replace with real projects API when available
-      setProjects([
-        {
-          project_id: "demo-1",
-          owner: "Aarav Mehta",
-          owner_id: "u1",
-          project_title: "AI Mental Health Assistant",
-          description:
-            "A virtual companion that uses NLP to detect emotional patterns and suggest coping strategies.",
-          industry: "HealthTech",
-          similarity: null,
-        },
-        {
-          project_id: "demo-2",
-          owner: "Sara Khan",
-          owner_id: "u2",
-          project_title: "EcoTrack – Smart Waste Management",
-          description:
-            "IoT-enabled bins that optimize garbage collection routes for cities.",
-          industry: "Clean Energy",
-          similarity: null,
-        },
-      ]);
+      const res = await axios.get(`${BASE_URL}/all-projects`);
+      if (res.data.success) {
+        setProjects(res.data.projects ?? []);
+        initStaticCounts(res.data.projects ?? []);
+      }
     } catch (err) {
       console.error("Feed error:", err);
+      setProjects([]);
     } finally {
       setLoading(false);
     }
@@ -99,8 +102,39 @@ const UserFeed = () => {
     }
   };
 
-  const handleAction = (action, projectId) => {
-    console.log(`${action} clicked for project ${projectId}`);
+  const handleAction = async (action, projectId) => {
+    if (action === "like") {
+      setLikes(prev => ({ ...prev, [projectId]: !prev[projectId] }));
+    } else if (action === "comment") {
+      setShowComments(prev => ({ ...prev, [projectId]: !prev[projectId] }));
+    } else if (action === "fund") {
+      try {
+        const project = projects.find(p => (p.project_id || p.id) === projectId);
+        const ownerId = project?.owner_id || project?.user?.id;
+        if (!ownerId) {
+          console.error("Owner ID not found for project", projectId);
+          alert("Could not identify the project owner.");
+          return;
+        }
+        await sendFundRequest(ownerId, projectId);
+        alert("Fund request sent successfully!");
+      } catch (err) {
+        console.error("Failed to send fund request:", err);
+        alert("Failed to send fund request.");
+      }
+    }
+  };
+
+  const handleAddComment = (projectId) => {
+    const text = newComment[projectId];
+    if (!text || text.trim() === "") return;
+    
+    setCommentsList(prev => ({
+      ...prev,
+      [projectId]: [...(prev[projectId] || []), { user: "You", text: text.trim() }]
+    }));
+    
+    setNewComment(prev => ({ ...prev, [projectId]: "" }));
   };
 
   // ── Loading state ────────────────────────────────────────────────
@@ -152,11 +186,12 @@ const UserFeed = () => {
         {projects.map((project) => {
           const ownerId   = project.owner_id || project.user?.id || null;
           const ownerName = project.owner || project.user?.name || "InnoConnect";
+          const projectId = project.project_id || project.id;
 
           return (
             <div
-              key={project.project_id || project.id}
-              className="bg-white rounded-2xl shadow-[0_0_15px_rgba(37,99,235,0.15)] border border-blue-100 p-6 transition hover:shadow-[0_0_25px_rgba(37,99,235,0.25)]"
+              key={projectId}
+              className="bg-white rounded-2xl shadow-[0_0_15px_rgba(37,99,235,0.15)] border border-blue-100 p-6 transition hover:shadow-[0_0_25px_rgba(37,99,235,0.25)] flex flex-col"
             >
               {/* Header */}
               <div className="flex items-center justify-between mb-4">
@@ -218,30 +253,65 @@ const UserFeed = () => {
               {/* Actions */}
               <div className="flex justify-around border-t border-gray-100 pt-3 text-gray-500">
                 <button
-                  onClick={() => handleAction("like", project.project_id)}
-                  className="flex items-center gap-2 hover:text-blue-600 transition-colors text-sm"
+                  onClick={() => handleAction("like", projectId)}
+                  className={`flex items-center gap-2 transition-colors text-sm ${likes[projectId] ? 'text-red-500' : 'hover:text-red-500'}`}
                 >
-                  <Heart size={18} /> Like
+                  <Heart size={18} fill={likes[projectId] ? "currentColor" : "none"} /> Like
                 </button>
                 <button
-                  onClick={() => handleAction("comment", project.project_id)}
+                  onClick={() => handleAction("comment", projectId)}
                   className="flex items-center gap-2 hover:text-blue-600 transition-colors text-sm"
                 >
                   <MessageCircle size={18} /> Comment
                 </button>
-                <button
-                  onClick={() => handleAction("fund", project.project_id)}
-                  className="flex items-center gap-2 hover:text-indigo-600 transition-colors text-sm"
-                >
-                  <HandCoins size={18} /> Fund
-                </button>
-                <button
-                  onClick={() => handleAction("collaborate", project.project_id)}
-                  className="flex items-center gap-2 hover:text-blue-600 transition-colors text-sm"
-                >
-                  <Users size={18} /> Collaborate
-                </button>
+                {role === "investor" && (
+                  <button
+                    onClick={() => handleAction("fund", projectId)}
+                    className="flex items-center gap-2 hover:text-indigo-600 transition-colors text-sm"
+                  >
+                    <HandCoins size={18} /> Fund
+                  </button>
+                )}
+                {role !== "investor" && (
+                  <button
+                    onClick={() => handleAction("collaborate", projectId)}
+                    className="flex items-center gap-2 hover:text-blue-600 transition-colors text-sm"
+                  >
+                    <Users size={18} /> Collaborate
+                  </button>
+                )}
               </div>
+
+              {/* Comment Section */}
+              {showComments[projectId] && (
+                <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-3">
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="text" 
+                      placeholder="Write a comment..." 
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-full px-4 py-2 text-sm focus:outline-none focus:border-blue-400"
+                      value={newComment[projectId] || ""}
+                      onChange={(e) => setNewComment(prev => ({ ...prev, [projectId]: e.target.value }))}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddComment(projectId)}
+                    />
+                    <button 
+                      onClick={() => handleAddComment(projectId)}
+                      className="p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition"
+                    >
+                      <Send size={16} />
+                    </button>
+                  </div>
+                  
+                  <div className="flex flex-col gap-2 mt-2 max-h-48 overflow-y-auto pr-2">
+                    {(commentsList[projectId] || []).map((c, i) => (
+                      <div key={i} className="bg-slate-50 p-3 rounded-xl">
+                        <span className="font-semibold text-sm text-slate-800">{c.user}</span>
+                        <p className="text-sm text-slate-600 mt-0.5">{c.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}

@@ -48,3 +48,10 @@ export async function sendChatMessage({ project, similarProjects, message }) {
   );
   return res.data; // { reply: "..." }
 }
+
+export async function getUserProjects(userId) {
+  const res = await axios.get(`${API_URL}/user-projects/${userId}`, {
+    headers: getAuthHeaders(),
+  });
+  return res.data.projects;
+}
